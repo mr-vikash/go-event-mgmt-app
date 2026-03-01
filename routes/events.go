@@ -2,6 +2,7 @@ package routes
 
 import (
 	"net/http"
+	"strconv"
 
 	"go-event-mgmt-app/models"
 	"go-event-mgmt-app/repository"
@@ -27,27 +28,71 @@ func createEvent(context *gin.Context) {
 	})
 }
 
-func updateEvent(context *gin.Context) {
-	var event models.Event
-	err := context.BindJSON(&event)
+func updateEvent(c *gin.Context) {
+
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid event id",
+		})
+		return
+	}
+
+	var req models.Event
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid JSON body",
+		})
+		return
+	}
+
+	event, err := repository.UpdateEvent(id, req.Name, req.Location)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Event updated successfully",
+		"event":   event,
+	})
+}
+
+func deleteEvent(cxt *gin.Context) {
+
+	idParam := cxt.Param("id")
+
+	id, err := strconv.Atoi(idParam)
+
+	result, err := repository.DeleteEvent(id)
 
 	if err != nil {
-		context.JSON(http.StatusSeeOther, gin.H{
-			"error": "Something went wrong",
+		cxt.JSON(http.StatusOK, gin.H{
+			"status":  "failed",
+			"message": result,
 		})
 	}
 
-	event, err = repository.UpdateEvent(event.ID, event.Name, event.Location)
+	cxt.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": result,
+	})
+}
 
+func getEvents(context *gin.Context) {
+	events, err := repository.GetAllEvents()
 	if err != nil {
-		context.JSON(http.StatusSeeOther, gin.H{
-			"error": err,
+		context.JSON(http.StatusBadRequest, gin.H{
+			"message": "something went wrong",
+			"error":   err,
 		})
 	}
 
 	context.JSON(http.StatusOK, gin.H{
-		"message": "Event updated successfully",
-		"event":   event,
+		"message": "Events loaded successfully",
+		"events":  events,
 	})
-
 }
